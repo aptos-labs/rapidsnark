@@ -12,6 +12,11 @@ BinFile::BinFile(const void *fileData, size_t fileSize, std::string _type, uint3
 
     size = fileSize;
     addr = malloc(size);
+
+    if (addr == nullptr) {
+        throw new std::runtime_error("Memory allocation failed for BinFile.");
+    }
+
     memcpy(addr, fileData, size);
 
     type.assign((const char *)addr, 4);
