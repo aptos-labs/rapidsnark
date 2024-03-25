@@ -14,7 +14,7 @@ BinFile::BinFile(const void *fileData, size_t fileSize, std::string _type, uint3
     addr = malloc(size);
 
     if (addr == nullptr) {
-        throw std::runtime_error("Memory allocation failed for BinFile.");
+        throw new std::runtime_error("Memory allocation failed for BinFile.");
     }
 
     memcpy(addr, fileData, size);
@@ -24,7 +24,7 @@ BinFile::BinFile(const void *fileData, size_t fileSize, std::string _type, uint3
 
     if (type != _type) {
         free(addr);
-        throw std::invalid_argument("Invalid file type. It should be " + _type + " and it is " + type);
+        throw new std::invalid_argument("Invalid file type. It should be " + _type + " and it is " + type);
     }
 
     version = readU32LE();
