@@ -217,8 +217,11 @@ ProverResponse FullProverImpl::prove(const char *witness_file_path) const {
     log_info("constructing metrics struct");
     ProverResponseMetrics metrics;
     metrics.prover_time = prover_duration.count();
-    
+
     const char *proof_raw = strdup(proof.dump().c_str());
+    if (proof_raw == nullptr) {
+      throw std::runtime_error("Failed to allocate memory for proof_raw");
+    }
 
     log_info("FullProverImpl::prove end");
     return ProverResponse(proof_raw, metrics);
