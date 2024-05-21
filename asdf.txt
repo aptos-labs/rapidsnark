@@ -1,10 +1,6 @@
-if (ARCH MATCHES "arm64")
-  link_libraries(${GMP_LIB})
-  add_definitions(${GMP_DEFINIONS})
-else()
-  link_libraries(gmp)
-endif()
- 
+link_libraries(${GMP_LIB})
+
+add_definitions(${GMP_DEFINIONS})
 
 if(USE_ASM)
     if(ARCH MATCHES "arm64")
@@ -40,8 +36,7 @@ set(FR_SOURCES
 
 if(USE_ASM)
     if(ARCH MATCHES "arm64")
-
-       set(FR_SOURCES ${FR_SOURCES} ../build/fr_raw_arm64.s ../build/fr_raw_generic.cpp ../build/fr_generic.cpp)
+        set(FR_SOURCES ${FR_SOURCES} ../build/fr_raw_arm64.s ../build/fr_raw_generic.cpp ../build/fr_generic.cpp)
     elseif(ARCH MATCHES "x86_64")
         set(FR_SOURCES ${FR_SOURCES} ../build/fr_asm.o)
     endif()
@@ -112,9 +107,7 @@ include_directories(
     ../src
     ../build
     ../depends/ffiasm/c
-    ../depends/json/single_include
-    ../depends/cpp-httplib/)
-
+    ../depends/json/single_include)
 
 add_library(rapidsnarkStatic STATIC ${LIB_SOURCES})
 set_target_properties(rapidsnarkStatic PROPERTIES OUTPUT_NAME rapidsnark)
@@ -123,17 +116,37 @@ add_library(rapidsnarkStaticFrFq STATIC ${LIB_SOURCES} ${FQ_SOURCES} ${FR_SOURCE
 set_target_properties(rapidsnarkStaticFrFq PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(rapidsnarkStaticFrFq PROPERTIES OUTPUT_NAME rapidsnark-fr-fq)
 
-target_link_libraries(rapidsnarkStatic)
+add_executable(prover main_prover.cpp)
+add_executable(proverServer main_proofserver.cpp)
+target_link_libraries(prover rapidsnarkStatic)
+target_link_libraries(proverServer rapidsnarkStatic)
+target_link_libraries(proverServer pistache)
 
 add_library(rapidsnark SHARED ${LIB_SOURCES})
 
+if(USE_LOGGER OR NOT USE_OPENMP)
+    target_link_libraries(prover pthread)
+    target_link_libraries(proverServer pthread)
+endif()
 
-#add_executable(test test_main.cpp)
-
-if(OpenMP_CXX_FOUND)
-    if(TARGET_PLATFORM MATCHES "android")
-        target_link_libraries(rapidsnark -static-openmp -fopenmp)
-    endif()
+if(USE_SODIUM)
+    target_link_libraries(prover sodium)
+    target_link_libraries(proverServer sodium)
 endif()
 
 
+if(OpenMP_CXX_FOUND)
+
+    if(TARGET_PLATFORM MATCHES "android")
+        target_link_libraries(prover -static-openmp -fopenmp)
+        target_link_libraries(rapidsnark -static-openmp -fopenmp)
+
+    elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+        target_link_libraries(prover OpenMP::OpenMP_CXX)
+        target_link_libraries(proverServer OpenMP::OpenMP_CXX)
+    endif()
+
+endif()
+
+
+add_executable(test_prover test_prover.cpp)
