@@ -4,6 +4,8 @@
 #include <memory>
 #include <stdexcept>
 #include <nlohmann/json.hpp>
+#include <chrono>
+
 
 #include <alt_bn128.hpp>
 #include "binfile_utils.hpp"
@@ -48,23 +50,6 @@ int main(int argc, char **argv)
             throw std::invalid_argument( "different wtns curve" );
         }
 
-        auto prover = Groth16::makeProver<AltBn128::Engine>(
-            zkeyHeader->nVars,
-            zkeyHeader->nPublic,
-            zkeyHeader->domainSize,
-            zkeyHeader->nCoefs,
-            zkeyHeader->vk_alpha1,
-            zkeyHeader->vk_beta1,
-            zkeyHeader->vk_beta2,
-            zkeyHeader->vk_delta1,
-            zkeyHeader->vk_delta2,
-            zkey->getSectionData(4),    // Coefs
-            zkey->getSectionData(5),    // pointsA
-            zkey->getSectionData(6),    // pointsB1
-            zkey->getSectionData(7),    // pointsB2
-            zkey->getSectionData(8),    // pointsC
-            zkey->getSectionData(9)     // pointsH1
-        );
 
         auto pointsA = zkey->getSectionData(5);
         AltBn128::FrElement *wtnsData = (AltBn128::FrElement *)wtns->getSectionData(2);
@@ -72,25 +57,17 @@ int main(int argc, char **argv)
         AltBn128::Engine E;
 
         typename AltBn128::Engine::G1Point pi_a;
-        E.g1.multiMulByScalar(pi_a, pointsA, (uint8_t*)wtnsData, sizeof(wtns[0]), 40000);
 
-        std::ofstream proofFile;
-        proofFile.open (proofFilename);
-        proofFile << proof->toJson();
-        proofFile.close();
+        auto start = std::chrono::high_resolution_clock::now();
+        E.g1.multiMulByScalar(pi_a, (AltBn128::Engine::G1PointAffine *)pointsA, (uint8_t*)wtnsData, sizeof((AltBn128::Engine::FrElement *)wtnsData), 40000);
+        auto end = std::chrono::high_resolution_clock::now();
 
-        std::ofstream publicFile;
-        publicFile.open (publicFilename);
+        std::chrono::duration<double, std::milli> duration = end - start;
 
-        json jsonPublic;
-        AltBn128::FrElement aux;
-        for (int i=1; i<=zkeyHeader->nPublic; i++) {
-            AltBn128::Fr.toMontgomery(aux, wtnsData[i]);
-            jsonPublic.push_back(AltBn128::Fr.toString(aux));
-        }
+        // Display the duration in milliseconds
+        std::cout << "Function execution time: " << duration.count() << " ms" << std::endl;
 
-        publicFile << jsonPublic;
-        publicFile.close();
+
 
     } catch (std::exception* e) {
         mpz_clear(altBbn128r);

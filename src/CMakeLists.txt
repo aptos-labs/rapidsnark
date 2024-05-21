@@ -128,12 +128,30 @@ target_link_libraries(rapidsnarkStatic)
 add_library(rapidsnark SHARED ${LIB_SOURCES})
 
 
-#add_executable(test test_main.cpp)
+add_executable(test test_main.cpp)
+target_link_libraries(test rapidsnarkStatic)
 
 if(OpenMP_CXX_FOUND)
     if(TARGET_PLATFORM MATCHES "android")
         target_link_libraries(rapidsnark -static-openmp -fopenmp)
     endif()
+endif()
+
+if(USE_SODIUM)
+    target_link_libraries(test sodium)
+endif()
+
+
+if(OpenMP_CXX_FOUND)
+
+    if(TARGET_PLATFORM MATCHES "android")
+        target_link_libraries(test -static-openmp -fopenmp)
+        target_link_libraries(rapidsnark -static-openmp -fopenmp)
+
+    elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+        target_link_libraries(test OpenMP::OpenMP_CXX)
+    endif()
+
 endif()
 
 
