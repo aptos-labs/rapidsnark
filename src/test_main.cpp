@@ -59,7 +59,11 @@ int main(int argc, char **argv)
         typename AltBn128::Engine::G1Point pi_a;
 
         auto start = std::chrono::high_resolution_clock::now();
-        E.g1.multiMulByScalar(pi_a, (AltBn128::Engine::G1PointAffine *)pointsA, (uint8_t*)wtnsData, sizeof((AltBn128::Engine::FrElement *)wtnsData), 40000);
+
+        #pragma omp parallel for 
+        for (int round = 0; round < 24; round++) {
+          E.g1.multiMulByScalar(pi_a, (AltBn128::Engine::G1PointAffine *)pointsA, (uint8_t*)wtnsData, sizeof((AltBn128::Engine::FrElement *)wtnsData), 40000);
+        }
         auto end = std::chrono::high_resolution_clock::now();
 
         std::chrono::duration<double, std::milli> duration = end - start;
