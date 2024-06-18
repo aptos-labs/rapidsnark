@@ -54,30 +54,46 @@ std::unique_ptr<Proof<Engine>> Prover<Engine>::prove(typename Engine::FrElement 
   std::cout << "domain size: " << domainSize << endl;
   std::cout << "num coeffs: " << nCoefs << endl;
     LOG_TRACE("OPENMP Start Multiexp A");
+    auto start = std::chrono::high_resolution_clock::now();
     uint32_t sW = sizeof(wtns[0]);
     typename Engine::G1Point pi_a;
     E.g1.multiMulByScalar(pi_a, pointsA, (uint8_t *)wtns, sW, nVars);
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> duration = end - start;
+    std::cout << "Multiexp A time: " << duration.count() << " ms" << std::endl;
     std::ostringstream ss2;
     ss2 << "pi_a: " << E.g1.toString(pi_a);
     LOG_DEBUG(ss2);
 
     LOG_TRACE("OPENMP Start Multiexp B1");
+    start = std::chrono::high_resolution_clock::now();
     typename Engine::G1Point pib1;
     E.g1.multiMulByScalar(pib1, pointsB1, (uint8_t *)wtns, sW, nVars);
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "Multiexp B1 time: " << duration.count() << " ms" << std::endl;
     std::ostringstream ss3;
     ss3 << "pib1: " << E.g1.toString(pib1);
     LOG_DEBUG(ss3);
 
     LOG_TRACE("OPENMP Start Multiexp B2");
+    start = std::chrono::high_resolution_clock::now();
     typename Engine::G2Point pi_b;
     E.g2.multiMulByScalar(pi_b, pointsB2, (uint8_t *)wtns, sW, nVars);
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "Multiexp B2 time: " << duration.count() << " ms" << std::endl;
     std::ostringstream ss4;
     ss4 << "pi_b: " << E.g2.toString(pi_b);
     LOG_DEBUG(ss4);
 
     LOG_TRACE("OPENMP Start Multiexp C");
+    start = std::chrono::high_resolution_clock::now();
     typename Engine::G1Point pi_c;
     E.g1.multiMulByScalar(pi_c, pointsC, (uint8_t *)((uint64_t)wtns + (nPublic +1)*sW), sW, nVars-nPublic-1);
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "Multiexp B2 time: " << duration.count() << " ms" << std::endl;
     std::ostringstream ss5;
     ss5 << "pi_c: " << E.g1.toString(pi_c);
     LOG_DEBUG(ss5);
@@ -151,6 +167,8 @@ std::unique_ptr<Proof<Engine>> Prover<Engine>::prove(typename Engine::FrElement 
     for (int i=0; i<NLOCKS; i++) omp_destroy_lock(&locks[i]);
 #endif
 
+
+    start = std::chrono::high_resolution_clock::now();
     LOG_TRACE("Calculating c");
     #pragma omp parallel for
     for (u_int32_t i=0; i<domainSize; i++) {
@@ -160,73 +178,120 @@ std::unique_ptr<Proof<Engine>> Prover<Engine>::prove(typename Engine::FrElement 
             b[i]
         );
     }
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "Calculating C time: " << duration.count() << " ms" << std::endl;
 
+    start = std::chrono::high_resolution_clock::now();
     LOG_TRACE("Initializing fft");
     u_int32_t domainPower = fft->log2(domainSize);
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "Initializing FFT time: " << duration.count() << " ms" << std::endl;
 
     LOG_TRACE("Start iFFT A");
+    start = std::chrono::high_resolution_clock::now();
     fft->ifft(a, domainSize);
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "iFFT A time: " << duration.count() << " ms" << std::endl;
     LOG_TRACE("a After ifft:");
     LOG_DEBUG(E.fr.toString(a[0]).c_str());
     LOG_DEBUG(E.fr.toString(a[1]).c_str());
     LOG_TRACE("Start Shift A");
+    start = std::chrono::high_resolution_clock::now();
     #pragma omp parallel for
     for (u_int64_t i=0; i<domainSize; i++) {
         E.fr.mul(a[i], a[i], fft->root(domainPower+1, i));
     }
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "Shift A time: " << duration.count() << " ms" << std::endl;
     LOG_TRACE("a After shift:");
     LOG_DEBUG(E.fr.toString(a[0]).c_str());
     LOG_DEBUG(E.fr.toString(a[1]).c_str());
     LOG_TRACE("Start FFT A");
+    start = std::chrono::high_resolution_clock::now();
     fft->fft(a, domainSize);
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "FFT A time: " << duration.count() << " ms" << std::endl;
     LOG_TRACE("a After fft:");
     LOG_DEBUG(E.fr.toString(a[0]).c_str());
     LOG_DEBUG(E.fr.toString(a[1]).c_str());
     LOG_TRACE("Start iFFT B");
+    start = std::chrono::high_resolution_clock::now();
     fft->ifft(b, domainSize);
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "iFFT B time: " << duration.count() << " ms" << std::endl;
     LOG_TRACE("b After ifft:");
     LOG_DEBUG(E.fr.toString(b[0]).c_str());
     LOG_DEBUG(E.fr.toString(b[1]).c_str());
     LOG_TRACE("Start Shift B");
+    start = std::chrono::high_resolution_clock::now();
     #pragma omp parallel for
     for (u_int64_t i=0; i<domainSize; i++) {
         E.fr.mul(b[i], b[i], fft->root(domainPower+1, i));
     }
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "Shift B time: " << duration.count() << " ms" << std::endl;
     LOG_TRACE("b After shift:");
     LOG_DEBUG(E.fr.toString(b[0]).c_str());
     LOG_DEBUG(E.fr.toString(b[1]).c_str());
     LOG_TRACE("Start FFT B");
+    start = std::chrono::high_resolution_clock::now();
     fft->fft(b, domainSize);
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "FFT B time: " << duration.count() << " ms" << std::endl;
     LOG_TRACE("b After fft:");
     LOG_DEBUG(E.fr.toString(b[0]).c_str());
     LOG_DEBUG(E.fr.toString(b[1]).c_str());
 
     LOG_TRACE("Start iFFT C");
+    start = std::chrono::high_resolution_clock::now();
     fft->ifft(c, domainSize);
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "iFFT C time: " << duration.count() << " ms" << std::endl;
     LOG_TRACE("c After ifft:");
     LOG_DEBUG(E.fr.toString(c[0]).c_str());
     LOG_DEBUG(E.fr.toString(c[1]).c_str());
     LOG_TRACE("Start Shift C");
+    start = std::chrono::high_resolution_clock::now();
     #pragma omp parallel for
     for (u_int64_t i=0; i<domainSize; i++) {
         E.fr.mul(c[i], c[i], fft->root(domainPower+1, i));
     }
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "Shift C time: " << duration.count() << " ms" << std::endl;
     LOG_TRACE("c After shift:");
     LOG_DEBUG(E.fr.toString(c[0]).c_str());
     LOG_DEBUG(E.fr.toString(c[1]).c_str());
     LOG_TRACE("Start FFT C");
+    start = std::chrono::high_resolution_clock::now();
     fft->fft(c, domainSize);
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "FFT C time: " << duration.count() << " ms" << std::endl;
     LOG_TRACE("c After fft:");
     LOG_DEBUG(E.fr.toString(c[0]).c_str());
     LOG_DEBUG(E.fr.toString(c[1]).c_str());
 
     LOG_TRACE("Start ABC");
+    start = std::chrono::high_resolution_clock::now();
     #pragma omp parallel for
     for (u_int64_t i=0; i<domainSize; i++) {
         E.fr.mul(a[i], a[i], b[i]);
         E.fr.sub(a[i], a[i], c[i]);
         E.fr.fromMontgomery(a[i], a[i]);
     }
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "ABC time: " << duration.count() << " ms" << std::endl;
     LOG_TRACE("abc:");
     LOG_DEBUG(E.fr.toString(a[0]).c_str());
     LOG_DEBUG(E.fr.toString(a[1]).c_str());
@@ -235,8 +300,12 @@ std::unique_ptr<Proof<Engine>> Prover<Engine>::prove(typename Engine::FrElement 
     delete [] c;
 
     LOG_TRACE("Start Multiexp H");
+    start = std::chrono::high_resolution_clock::now();
     typename Engine::G1Point pih;
     E.g1.multiMulByScalar(pih, pointsH, (uint8_t *)a, sizeof(a[0]), domainSize);
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "Multiexp H time: " << duration.count() << " ms" << std::endl;
     std::ostringstream ss1;
     ss1 << "pih: " << E.g1.toString(pih);
     LOG_DEBUG(ss1);
@@ -260,6 +329,7 @@ std::unique_ptr<Proof<Engine>> Prover<Engine>::prove(typename Engine::FrElement 
     pC_future.get();
 #endif
 
+    start = std::chrono::high_resolution_clock::now();
     typename Engine::G1Point p1;
     typename Engine::G2Point p2;
 
@@ -293,6 +363,10 @@ std::unique_ptr<Proof<Engine>> Prover<Engine>::prove(typename Engine::FrElement 
     E.g1.copy(p->A, pi_a);
     E.g2.copy(p->B, pi_b);
     E.g1.copy(p->C, pi_c);
+
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    std::cout << "Final arithmetic time: " << duration.count() << " ms" << std::endl;
 
     return std::unique_ptr<Proof<Engine>>(p);
 }
