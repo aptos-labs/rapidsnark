@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <iostream>
 #include <fstream>
 #include <gmp.h>
@@ -14,6 +15,16 @@
 #include "groth16.hpp"
 
 using json = nlohmann::json;
+
+__uint128_t g_lehmer64_state = 0xAAAAAAAAAAAAAAAALL;
+
+// Fast random generator
+// https://lemire.me/blog/2019/03/19/the-fastest-conventional-random-number-generator-that-can-pass-big-crush/
+
+uint64_t lehmer64() {
+  g_lehmer64_state *= 0xda942042e4dd58b5LL;
+  return g_lehmer64_state >> 64;
+}
 
 
 int main(int argc, char **argv)
@@ -58,11 +69,24 @@ int main(int argc, char **argv)
 
         typename AltBn128::Engine::G1Point pi_a;
 
+        int N = 40000;
+
+        uint8_t *scalars = new uint8_t[N*32];
+
+        // random scalars
+        for (int i=0; i<N; i++) {
+          *((uint64_t *)(scalars + i*8)) = lehmer64();
+        }
+
+
+        cout << "scalar size: " << sizeof((AltBn128::Engine::FrElement *)wtnsData) << std::endl;
+
+
         auto start = std::chrono::high_resolution_clock::now();
 
         #pragma omp parallel for 
         for (int round = 0; round < 24; round++) {
-          E.g1.multiMulByScalar(pi_a, (AltBn128::Engine::G1PointAffine *)pointsA, (uint8_t*)wtnsData, sizeof((AltBn128::Engine::FrElement *)wtnsData), 40000);
+          E.g1.multiMulByScalar(pi_a, (AltBn128::Engine::G1PointAffine *)pointsA, (uint8_t*)scalars, 32, 40000);
         }
         auto end = std::chrono::high_resolution_clock::now();
 
