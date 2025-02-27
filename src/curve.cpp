@@ -1,5 +1,6 @@
 #include <sstream>
 #include "curve.hpp"
+#include "alt_bn128.hpp"
 
 template <typename BaseField>
 Curve<BaseField>::Curve(BaseField &aF, typename BaseField::Element &aa, typename BaseField::Element &ab, typename BaseField::Element &agx, typename BaseField::Element &agy) : F(aF) {
@@ -657,3 +658,5 @@ void Curve<BaseField>::printCounters() {
 
 
 
+template class Curve<AltBn128::Engine::F1>;
+template class Curve<AltBn128::Engine::F2>;

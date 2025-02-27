@@ -4,6 +4,7 @@
 #include <memory.h>
 #include "misc.hpp"
 #include "multiexp.hpp"
+#include "alt_bn128.hpp"
 
 template <typename Curve>
 void ParallelMultiexp<Curve>::initAccs()
@@ -305,3 +306,7 @@ void ParallelMultiexp<Curve>::multiexp(typename Curve::Point&       r,
 
     // delete[] chunkResults;
 }
+
+
+template class ParallelMultiexp<AltBn128::Engine::G1>;
+template class ParallelMultiexp<AltBn128::Engine::G2>;

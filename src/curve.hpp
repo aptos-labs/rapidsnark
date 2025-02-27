@@ -1,5 +1,5 @@
-#ifndef CURVE_H
-#define CURVE_H
+#ifndef CURVE_HPP
+#define CURVE_HPP
 
 #include <sstream>
 #include <string>
