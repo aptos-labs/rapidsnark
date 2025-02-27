@@ -1,4 +1,6 @@
-#pragma once
+# ifndef WTNS_UTILS_H
+# define WTNS_UTILS_H
+
 
 #include <cstdint>
 #include <gmp.h>
@@ -43,3 +45,5 @@ public:
 }; // class Header
 
 } // namespace WtnsUtils
+  
+# endif

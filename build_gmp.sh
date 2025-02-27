@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-set -e
+set -ex
+
 
 NPROC=8
 fetch_cmd=$( (type wget > /dev/null 2>&1 && echo "wget") || echo "curl -O" )

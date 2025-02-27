@@ -1,4 +1,5 @@
 #include "fq_element.hpp"
+#include <stdio.h>
 #include <gmp.h>
 #include <cstring>
 
