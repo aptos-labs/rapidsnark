@@ -1,3 +1,0 @@
-[submodule "depends/tbb/oneTBB"]
-	path = subprojects/oneTBB
-	url = https://github.com/oneapi-src/oneTBB
