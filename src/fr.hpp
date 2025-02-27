@@ -195,7 +195,7 @@ void Fr_longErr();
 
 // Pending functions to convert
 
-void Fr_str2element(PFrElement pE, char const*s, uint base);
+void Fr_str2element(PFrElement pE, char const*s, uint64_t base);
 char *Fr_element2str(PFrElement pE);
 void Fr_idiv(PFrElement r, PFrElement a, PFrElement b);
 void Fr_mod(PFrElement r, PFrElement a, PFrElement b);

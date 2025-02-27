@@ -52,7 +52,7 @@ bool Fq_init() {
     return true;
 }
 
-void Fq_str2element(PFqElement pE, char const *s, uint base) {
+void Fq_str2element(PFqElement pE, char const *s, uint64_t base) {
     mpz_t mr;
     mpz_init_set_str(mr, s, base);
     mpz_fdiv_r(mr, mr, q);

@@ -81,8 +81,8 @@ void ParallelMultiexp<Curve>::processChunk(uint64_t idChunk, uint64_t nX,
         {
             for (auto i = range.begin(); i < range.end(); i++)
             {
-                uint mod = i % nX;
-                uint len = size[mod] - 1;
+                uint64_t mod = i % nX;
+                uint64_t len = size[mod] - 1;
                 if (i < 0 || i > len * nX + mod)
                     continue;
                 if (g.isZero(bases[i]))

@@ -195,7 +195,7 @@ void Fq_longErr();
 
 // Pending functions to convert
 
-void Fq_str2element(PFqElement pE, char const*s, uint base);
+void Fq_str2element(PFqElement pE, char const*s, uint64_t base);
 char *Fq_element2str(PFqElement pE);
 void Fq_idiv(PFqElement r, PFqElement a, PFqElement b);
 void Fq_mod(PFqElement r, PFqElement a, PFqElement b);

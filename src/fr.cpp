@@ -52,7 +52,7 @@ bool Fr_init() {
     return true;
 }
 
-void Fr_str2element(PFrElement pE, char const *s, uint base) {
+void Fr_str2element(PFrElement pE, char const *s, uint64_t base) {
     mpz_t mr;
     mpz_init_set_str(mr, s, base);
     mpz_fdiv_r(mr, mr, q);
