@@ -113,8 +113,4 @@ makeProver(u_int32_t nVars, u_int32_t nPublic, u_int32_t domainSize,
            void* pointsB1, void* pointsB2, void* pointsC, void* pointsH);
 } // namespace Groth16
 
-#define GROTH16_INCLUDING_CPP_FROM_HPP
-#include "groth16.cpp"
-#undef GROTH16_INCLUDING_CPP_FROM_HPP
-
 #endif

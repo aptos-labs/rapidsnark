@@ -2,6 +2,7 @@
 #include <vector>
 #include "fft.hpp"
 #include <assert.h>
+#include "alt_bn128.hpp"
 #ifdef USE_OPENMP
 #include <omp.h>
 #endif
@@ -255,3 +256,6 @@ void FFT<Field>::printVector(Element* a, std::uint64_t n)
     std::cout << "]" << std::endl;
 }
 
+
+
+template class FFT<AltBn128::Engine::Fr>;
