@@ -113,18 +113,14 @@ if (ARCH MATCHES "arm64")
    include_directories(
     ../src
     ../build
-    ../depends/ffiasm/c
     ../depends/json/single_include
-    ../depends/cpp-httplib/
     ../package/include/
     )
 else()
    include_directories(
     ../src
     ../build
-    ../depends/ffiasm/c
     ../depends/json/single_include
-    ../depends/cpp-httplib/
     ../package/include/
     )
 endif()
