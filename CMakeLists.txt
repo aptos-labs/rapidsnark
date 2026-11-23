@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 
 include(cmake/platform.cmake)
 
@@ -59,15 +59,13 @@ add_subdirectory(src)
 install(TARGETS rapidsnark rapidsnarkStatic rapidsnarkStaticFrFq fr fq
     RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
     BUNDLE DESTINATION ${CMAKE_INSTALL_PREFIX}/app
-    LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+    LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 
-install(FILES
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
-
-  if (ARCH MATCHES "arm64")
-    install(FILES "${GMP_LIB_DIR}/${GMP_LIB_FILE}"
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
-  endif()
+if (EXISTS "${GMP_LIB_FILE_FULLPATH}")
+    install(FILES "${GMP_LIB_FILE_FULLPATH}"
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+endif()
 
 install(FILES src/fullprover.hpp
     DESTINATION ${CMAKE_INSTALL_PREFIX}/include)

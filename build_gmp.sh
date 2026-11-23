@@ -3,7 +3,7 @@
 set -e
 
 NPROC=8
-fetch_cmd=$( (type wget > /dev/null 2>&1 && echo "wget") || echo "curl -O" )
+fetch_cmd=$( (type wget > /dev/null 2>&1 && echo "wget") || echo "curl -LO" )
 
 usage()
 {
@@ -293,7 +293,7 @@ build_macos_arch()
   ARCH="$1"
   case "$ARCH" in
     "arm64" )
-      ARCH_FLAGS="-arch arm64 -arch arm64e"
+      ARCH_FLAGS="-arch arm64"
       ;;
     "x86_64" )
       ARCH_FLAGS="-arch x86_64"
