@@ -25,7 +25,7 @@ usage()
 
 get_gmp()
 {
-    GMP_NAME=gmp-6.2.1
+    GMP_NAME=gmp-6.3.0
     GMP_ARCHIVE=${GMP_NAME}.tar.xz
     GMP_URL=https://ftp.gnu.org/gnu/gmp/${GMP_ARCHIVE}
 
