@@ -1,11 +1,8 @@
 set(CMAKE_CXX_STANDARD 17)
+find_package(Threads REQUIRED)
 
-if (ARCH MATCHES "arm64")
-  link_libraries(${GMP_LIB})
-  add_definitions(${GMP_DEFINIONS})
-else()
-  link_libraries(gmp)
-endif()
+link_libraries(${GMP_LIB})
+add_definitions(${GMP_DEFINIONS})
 
 
 if(USE_ASM)
@@ -109,33 +106,27 @@ if(USE_LOGGER)
     add_definitions(-DUSE_LOGGER)
 endif()
 
-if (ARCH MATCHES "arm64")
-   include_directories(
-    ../src
-    ../build
-    ../depends/ffiasm/c
-    ../depends/json/single_include
-    ../depends/cpp-httplib/
-    ../package/include/
-    )
-else()
-   include_directories(
-    ../src
-    ../build
-    ../depends/ffiasm/c
-    ../depends/json/single_include
-    ../depends/cpp-httplib/
-    ../package/include/
-    )
-endif()
+get_filename_component(INSTALL_PREFIX_ABS "${CMAKE_INSTALL_PREFIX}" ABSOLUTE BASE_DIR "${CMAKE_BINARY_DIR}")
 
-link_directories(../package/lib/)
+include_directories(
+    ../src
+    ../build
+    ../depends/json/single_include
+    ../package/include/
+    ${INSTALL_PREFIX_ABS}/include
+    )
+
+link_directories(
+    ../package/lib/
+    ${INSTALL_PREFIX_ABS}/lib
+    )
 
 
 add_library(rapidsnarkStatic STATIC ${LIB_SOURCES})
 set_target_properties(rapidsnarkStatic PROPERTIES OUTPUT_NAME rapidsnark)
 
 add_library(rapidsnarkStaticFrFq STATIC ${LIB_SOURCES} ${FQ_SOURCES} ${FR_SOURCES})
+add_dependencies(rapidsnarkStaticFrFq fr fq)
 set_target_properties(rapidsnarkStaticFrFq PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(rapidsnarkStaticFrFq PROPERTIES OUTPUT_NAME rapidsnark-fr-fq)
 
@@ -143,7 +134,7 @@ target_link_libraries(rapidsnarkStatic)
 
 add_library(rapidsnark SHARED ${LIB_SOURCES})
 
-target_link_libraries(rapidsnark tbb)
+target_link_libraries(rapidsnark tbb Threads::Threads)
 
 
 if(OpenMP_CXX_FOUND)

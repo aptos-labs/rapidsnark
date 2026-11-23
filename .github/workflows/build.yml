@@ -8,16 +8,17 @@ on:
       - main
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-linux:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: "recursive"
-
-      - name: install tbb dependencie
-        run: sudo apt-get install libtbb2 -y
 
       - name: install requirements
         uses: awalsh128/cache-apt-pkgs-action@v1
@@ -26,73 +27,61 @@ jobs:
           version: 1.0
 
       - name: Cache gmp build
-        uses: actions/cache@v3
+        uses: actions/cache@v6
         with:
           path: |
-            depends/gmp
-            depends/gmp-6.2.1.tar.xz
+            depends/gmp/package
+            depends/gmp-6.3.0.tar.xz
           key: ${{ runner.os }}-gmp-${{ hashFiles('build_gmp.sh') }}-2
-
-      - name: build gmp for Android arm64
-        run: if [[ ! -d "depends/gmp/package_android_arm64" ]]; then ./build_gmp.sh android; fi
-
-      - name: build gmp for Android x86_64
-        run: if [[ ! -d "depends/gmp/package_android_x86_64" ]]; then ./build_gmp.sh android_x86_64; fi
 
       - name: build gmp for Linux x86_64
         run: if [[ ! -d "depends/gmp/package" ]]; then ./build_gmp.sh host; fi
 
-      - name: Build prover Android ARM64
-        run: |
-          mkdir build_prover_android && cd build_prover_android
-          cmake .. -DTARGET_PLATFORM=ANDROID -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../package_android
-          make -j4 && make install
-
-      - name: Build prover Android x86_64
-        run: |
-          mkdir build_prover_android_x86_64 && cd build_prover_android_x86_64
-          cmake .. -DTARGET_PLATFORM=ANDROID_x86_64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../package_android_x86_64
-          make -j4 && make install
+      - name: build oneTBB for Linux x86_64
+        run: ./build_tbb.sh "$(pwd)/package"
 
       - name: Build prover Linux
         run: |
           mkdir build_prover && cd build_prover
           cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../package
-          make -j4 && make install
+          make -j$(nproc) && make install
 
       - name: test prover for linux
         run: |
-          set -x
           set -e
-          npm install -g snarkjs
-          package/bin/prover testdata/circuit_final.zkey testdata/witness.wtns proof.json public.json
-          snarkjs groth16 verify testdata/verification_key.json public.json proof.json
-
-      - name: upload Android ARM64 artifacts
-        if: github.event_name == 'release'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REF_NAME: ${{ github.ref_name }}
-          TAG_NAME: ${{ github.event.release.tag_name }}
-        run: |
           set -x
-          mkdir "rapidsnark-android-arm64-${REF_NAME}"
-          cp -r package_android/* "rapidsnark-android-arm64-${REF_NAME}/"
-          zip -r "rapidsnark-android-arm64-${REF_NAME}.zip" "rapidsnark-android-arm64-${REF_NAME}"
-          gh release upload "${TAG_NAME}" "rapidsnark-android-arm64-${REF_NAME}.zip"
+          cat << 'EOF' > verify_prover.cpp
+          #include "fullprover.hpp"
+          #include <fstream>
+          #include <iostream>
 
-      - name: upload Android x86_64 artifacts
-        if: github.event_name == 'release'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REF_NAME: ${{ github.ref_name }}
-          TAG_NAME: ${{ github.event.release.tag_name }}
-        run: |
-          set -x
-          mkdir "rapidsnark-android-x86_64-${REF_NAME}"
-          cp -r package_android_x86_64/* "rapidsnark-android-x86_64-${REF_NAME}/"
-          zip -r "rapidsnark-android-x86_64-${REF_NAME}.zip" "rapidsnark-android-x86_64-${REF_NAME}"
-          gh release upload "${TAG_NAME}" "rapidsnark-android-x86_64-${REF_NAME}.zip"
+          int main(int argc, char* argv[]) {
+              if (argc < 4) return 1;
+              FullProver prover(argv[1]);
+              auto ret = prover.prove(argv[2]);
+              if (ret.type != SUCCESS) {
+                  std::cerr << "Proving failed\n";
+                  return 1;
+              }
+              std::ofstream(argv[3]) << ret.raw_json;
+              return 0;
+          }
+          EOF
+          c++ -O3 -std=c++17 verify_prover.cpp \
+            -I./package/include \
+            ./package/lib/librapidsnark-fr-fq.a \
+            ./package/lib/libgmp.a \
+            -L./package/lib -Wl,-rpath,"$(pwd)/package/lib" -ltbb -pthread \
+            -o verify_prover
+          ./verify_prover testdata/circuit_final.zkey testdata/witness.wtns proof.json
+          npx --yes snarkjs wtns export json testdata/witness.wtns witness.json
+          node -e '
+            const fs = require("fs");
+            const vk = JSON.parse(fs.readFileSync("testdata/verification_key.json", "utf8"));
+            const wtns = JSON.parse(fs.readFileSync("witness.json", "utf8"));
+            fs.writeFileSync("public.json", JSON.stringify(wtns.slice(1, 1 + vk.nPublic), null, 2));
+          '
+          npx --yes snarkjs groth16 verify testdata/verification_key.json public.json proof.json
 
       - name: upload Linux x86_64 artifacts
         if: github.event_name == 'release'
@@ -108,37 +97,24 @@ jobs:
           gh release upload "${TAG_NAME}" "rapidsnark-linux-x86_64-${REF_NAME}.zip"
 
   build-apple-arm64:
-    runs-on: macos-13-xlarge
+    runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: "recursive"
 
       - name: Cache gmp build
-        uses: actions/cache@v3
+        uses: actions/cache@v6
         with:
           path: |
-            depends/gmp
-            depends/gmp-6.2.1.tar.xz
+            depends/gmp/package_macos_arm64
+            depends/gmp-6.3.0.tar.xz
           key: ${{ runner.os }}-gmp-arm64-${{ hashFiles('build_gmp.sh') }}
 
       - name: build
         run: |
-          if [[ ! -d "depends/gmp/package_ios_arm64" ]]; then ./build_gmp.sh ios; fi
-          if [[ ! -d "depends/gmp/package_iphone_simulator" ]]; then ./build_gmp.sh ios_simulator; fi
           if [[ ! -d "depends/gmp/package_macos_arm64" ]]; then ./build_gmp.sh macos_arm64; fi
-
-          mkdir build_prover_ios && cd build_prover_ios
-          cmake .. -GXcode -DTARGET_PLATFORM=IOS -DCMAKE_INSTALL_PREFIX=../package_ios
-          xcodebuild -destination 'generic/platform=iOS' -scheme rapidsnarkStatic -project rapidsnark.xcodeproj -configuration Release
-          cp ../depends/gmp/package_ios_arm64/lib/libgmp.a src/Release-iphoneos
-          cd ../
-
-          mkdir build_prover_ios_simulator && cd build_prover_ios_simulator
-          cmake .. -GXcode -DTARGET_PLATFORM=IOS -DCMAKE_INSTALL_PREFIX=../package_ios_simulator -DUSE_ASM=NO
-          xcodebuild -destination 'generic/platform=iOS Simulator' -scheme rapidsnarkStatic -project rapidsnark.xcodeproj
-          cp ../depends/gmp/package_iphone_simulator/lib/libgmp.a src/Debug-iphonesimulator
-          cd ../
+          ./build_tbb.sh "$(pwd)/package_macos_arm64" -DCMAKE_OSX_ARCHITECTURES=arm64
 
           mkdir build_prover_macos_arm64 && cd build_prover_macos_arm64
           cmake .. -DTARGET_PLATFORM=macos_arm64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../package_macos_arm64
@@ -146,37 +122,40 @@ jobs:
 
       - name: test prover
         run: |
-          set -x
           set -e
-          npm install -g snarkjs
-          package_macos_arm64/bin/prover testdata/circuit_final.zkey testdata/witness.wtns proof.json public.json
-          snarkjs groth16 verify testdata/verification_key.json public.json proof.json
-
-      - name: upload iOS artifacts
-        if: github.event_name == 'release'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REF_NAME: ${{ github.ref_name }}
-          TAG_NAME: ${{ github.event.release.tag_name }}
-        run: |
           set -x
-          mkdir "rapidsnark-iOS-${REF_NAME}"
-          cp -r build_prover_ios/src/Release-iphoneos/* "rapidsnark-iOS-${REF_NAME}/"
-          zip -r "rapidsnark-iOS-${REF_NAME}.zip" "rapidsnark-iOS-${REF_NAME}"
-          gh release upload "${TAG_NAME}" "rapidsnark-iOS-${REF_NAME}.zip"
+          cat << 'EOF' > verify_prover.cpp
+          #include "fullprover.hpp"
+          #include <fstream>
+          #include <iostream>
 
-      - name: upload iOS Simulator artifacts
-        if: github.event_name == 'release'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REF_NAME: ${{ github.ref_name }}
-          TAG_NAME: ${{ github.event.release.tag_name }}
-        run: |
-          set -x
-          mkdir "rapidsnark-iOS-Simulator-${REF_NAME}"
-          cp -r build_prover_ios_simulator/src/Debug-iphonesimulator/* "rapidsnark-iOS-Simulator-${REF_NAME}/"
-          zip -r "rapidsnark-iOS-Simulator-${REF_NAME}.zip" "rapidsnark-iOS-Simulator-${REF_NAME}"
-          gh release upload "${TAG_NAME}" "rapidsnark-iOS-Simulator-${REF_NAME}.zip"
+          int main(int argc, char* argv[]) {
+              if (argc < 4) return 1;
+              FullProver prover(argv[1]);
+              auto ret = prover.prove(argv[2]);
+              if (ret.type != SUCCESS) {
+                  std::cerr << "Proving failed\n";
+                  return 1;
+              }
+              std::ofstream(argv[3]) << ret.raw_json;
+              return 0;
+          }
+          EOF
+          clang++ -arch arm64 -O3 -std=c++17 verify_prover.cpp \
+            -I./package_macos_arm64/include \
+            ./package_macos_arm64/lib/librapidsnark-fr-fq.a \
+            ./package_macos_arm64/lib/libgmp.a \
+            -L./package_macos_arm64/lib -Wl,-rpath,"$(pwd)/package_macos_arm64/lib" -ltbb -pthread \
+            -o verify_prover
+          ./verify_prover testdata/circuit_final.zkey testdata/witness.wtns proof.json
+          npx --yes snarkjs wtns export json testdata/witness.wtns witness.json
+          node -e '
+            const fs = require("fs");
+            const vk = JSON.parse(fs.readFileSync("testdata/verification_key.json", "utf8"));
+            const wtns = JSON.parse(fs.readFileSync("witness.json", "utf8"));
+            fs.writeFileSync("public.json", JSON.stringify(wtns.slice(1, 1 + vk.nPublic), null, 2));
+          '
+          npx --yes snarkjs groth16 verify testdata/verification_key.json public.json proof.json
 
       - name: upload macOS arm64 artifacts
         if: github.event_name == 'release'
@@ -192,27 +171,28 @@ jobs:
           gh release upload "${TAG_NAME}" "rapidsnark-macOS-arm64-${REF_NAME}.zip"
 
   build-apple-x86_64:
-    runs-on: macos-13
+    runs-on: macos-15-intel
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: "recursive"
 
       - name: Cache gmp build
-        uses: actions/cache@v3
+        uses: actions/cache@v6
         with:
           path: |
-            depends/gmp
-            depends/gmp-6.2.1.tar.xz
+            depends/gmp/package_macos_x86_64
+            depends/gmp-6.3.0.tar.xz
           key: ${{ runner.os }}-gmp-x86_64-${{ hashFiles('build_gmp.sh') }}-2
 
       - name: install dependencies
         run: |
-          brew install nasm
+          command -v nasm || HOMEBREW_NO_AUTO_UPDATE=1 brew install nasm
 
       - name: build
         run: |
           if [[ ! -d "depends/gmp/package_macos_x86_64" ]]; then ./build_gmp.sh macos_x86_64; fi
+          ./build_tbb.sh "$(pwd)/package_macos_x86_64" -DCMAKE_OSX_ARCHITECTURES=x86_64
 
           mkdir build_prover_macos_x86_64 && cd build_prover_macos_x86_64
           cmake .. -DTARGET_PLATFORM=macos_x86_64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../package_macos_x86_64
@@ -220,11 +200,40 @@ jobs:
 
       - name: test prover
         run: |
-          set -x
           set -e
-          npm install -g snarkjs
-          package_macos_x86_64/bin/prover testdata/circuit_final.zkey testdata/witness.wtns proof.json public.json
-          snarkjs groth16 verify testdata/verification_key.json public.json proof.json
+          set -x
+          cat << 'EOF' > verify_prover.cpp
+          #include "fullprover.hpp"
+          #include <fstream>
+          #include <iostream>
+
+          int main(int argc, char* argv[]) {
+              if (argc < 4) return 1;
+              FullProver prover(argv[1]);
+              auto ret = prover.prove(argv[2]);
+              if (ret.type != SUCCESS) {
+                  std::cerr << "Proving failed\n";
+                  return 1;
+              }
+              std::ofstream(argv[3]) << ret.raw_json;
+              return 0;
+          }
+          EOF
+          clang++ -arch x86_64 -O3 -std=c++17 verify_prover.cpp \
+            -I./package_macos_x86_64/include \
+            ./package_macos_x86_64/lib/librapidsnark-fr-fq.a \
+            ./package_macos_x86_64/lib/libgmp.a \
+            -L./package_macos_x86_64/lib -Wl,-rpath,"$(pwd)/package_macos_x86_64/lib" -ltbb -pthread \
+            -o verify_prover
+          ./verify_prover testdata/circuit_final.zkey testdata/witness.wtns proof.json
+          npx --yes snarkjs wtns export json testdata/witness.wtns witness.json
+          node -e '
+            const fs = require("fs");
+            const vk = JSON.parse(fs.readFileSync("testdata/verification_key.json", "utf8"));
+            const wtns = JSON.parse(fs.readFileSync("witness.json", "utf8"));
+            fs.writeFileSync("public.json", JSON.stringify(wtns.slice(1, 1 + vk.nPublic), null, 2));
+          '
+          npx --yes snarkjs groth16 verify testdata/verification_key.json public.json proof.json
 
       - name: upload macOS x86_64 artifacts
         if: github.event_name == 'release'
